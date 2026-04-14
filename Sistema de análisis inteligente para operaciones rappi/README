@@ -1,0 +1,142 @@
+# Sistema de Análisis Inteligente para Operaciones Rappi
+
+Sistema de análisis inteligente para operaciones tipo Rappi basado en lenguaje natural.
+
+Permite a usuarios no técnicos consultar datos operacionales, generar insights automáticos y producir reportes ejecutivos listos para toma de decisiones.
+
+---
+
+## Objetivo
+
+Facilitar el acceso a métricas operativas y automatizar la generación de insights accionables sin necesidad de conocimientos técnicos (SQL, BI, etc.).
+
+---
+
+## Funcionalidades
+
+### Chatbot analítico
+
+Permite hacer preguntas en lenguaje natural como:
+
+- Top 5 zones with highest Lead Penetration this week
+- Top zones in Colombia
+- Compare Perfect Orders between Wealthy and Non-Wealthy zones
+- Show trend of Gross Profit UE
+- ¿Qué zonas tienen bajo Lead Penetration pero alto Perfect Orders?
+
+✔ Soporta:
+
+- Rankings
+- Filtros
+- Comparaciones
+- Tendencias
+- Análisis multivariable
+
+---
+
+### 📊 Sistema de insights automáticos
+
+El sistema detecta automáticamente:
+
+- Anomalías (cambios drásticos semana a semana)
+- Tendencias negativas (3+ semanas de deterioro)
+- Oportunidades (ej. bajo Lead Penetration pero buen desempeño)
+- Benchmarking (comparación por país y tipo de zona)
+- Correlaciones entre métricas
+
+---
+
+### Reporte ejecutivo
+
+Genera un reporte estructurado que incluye:
+
+- Resumen ejecutivo
+- Recomendaciones accionables
+- Tablas de resultados
+- Conclusiones por categoría
+
+📌 Exportable automáticamente en PDF (`executive_report.pdf`)
+
+---
+
+## Arquitectura
+
+El sistema está diseñado de forma modular:
+
+- `data.py` → carga y transformación de datos
+- `logic.py` → cálculos y agregaciones
+- `chatbot.py` → interpretación de queries
+- `insights.py` → detección automática de patrones
+- `report.py` → generación de reportes (consola + PDF)
+- `main.py` → orquestador principal
+
+Esto con la finalidad de garantizar un diseño escalable y mantenible en el tiempo.
+
+---
+
+## Instalación
+
+### 1. Clonar repositorio
+
+```bash
+git clone <https://github.com/seguechal-sudo/technical-test---Rappi.git>
+
+
+
+#Sistema de análisis inteligente para operaciones de Rappi basado en lenguaje natural.
+
+#Este proyecto permite:
+- Consultar datos operacionales con lenguaje natural
+- Analizar métricas clave (Lead Penetration, Perfect Orders, etc.)
+- Generar insights automáticos
+- Crear reportes ejecutivos en PDF
+
+---
+
+##  Funcionalidades
+
+### Chatbot analítico
+Permite hacer preguntas como:
+
+- ¿Cuáles son las 5 zonas con mayor Lead Penetration?
+- Compara Perfect Orders entre zonas Wealthy y Non Wealthy en México
+- Muestra la evolución de Gross Profit UE en Chapinero
+- ¿Qué zonas tienen alto Lead Penetration pero bajo Perfect Orders?
+
+---
+
+### Sistema de insights
+Genera automáticamente:
+
+- Anomalías
+- Tendencias negativas
+- Oportunidades
+- Benchmark por país y tipo de zona
+- Correlaciones entre métricas
+
+---
+
+### Reporte ejecutivo
+Genera un reporte con:
+
+- Resumen ejecutivo
+- Recomendaciones
+- Tablas de resultados
+- Conclusiones por categoría
+
+Exportable en PDF
+
+---
+---
+
+## Instalación
+# Se debe correr en la terminal la siguiente linea de codigo con la finalidad
+# de instalar las librerias necesarias.
+pip install -r requirements.txt
+
+# Exportamos la API_KEY con la cual trabajará GEMINI
+export GEMINI_API_KEY="AIzaSyBuXGOB58l3eU-g6NoUDU4Demsz7pLaT_E"
+
+## Ejecucion del BOT
+python3 main.py
+```
