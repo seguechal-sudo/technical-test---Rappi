@@ -1,4 +1,4 @@
-from logic import (
+from scr.logic import (
     normalize_text,
     extract_top_n,
     extract_metric,
@@ -12,7 +12,7 @@ from logic import (
     problematic_zones,
     order_growth_inference,
 )
-from data import anomalies, bad_trends, correlations
+from scr.data import anomalies, bad_trends, correlations
 
 
 def chatbot(query, df_metrics, df_metrics_long, df_orders=None, df_orders_long=None):

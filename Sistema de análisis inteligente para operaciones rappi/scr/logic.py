@@ -2,7 +2,7 @@ import re
 import unicodedata
 import pandas as pd
 
-from data import anomalies, bad_trends
+from scr.data import anomalies, bad_trends
 
 
 METRIC_MAP = {
