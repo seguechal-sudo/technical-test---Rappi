@@ -1,7 +1,8 @@
 import re
 import unicodedata
 import pandas as pd
-from scr.data import anomalies, bad_trends, get_latest_col
+
+from data import anomalies, bad_trends
 
 
 METRIC_MAP = {
@@ -49,9 +50,11 @@ def extract_top_n(q: str, default: int = 5) -> int:
     match = re.search(r"\btop\s+(\d+)\b", q)
     if match:
         return int(match.group(1))
+
     match = re.search(r"\b(\d+)\b", q)
     if match:
         return int(match.group(1))
+
     return default
 
 
@@ -83,6 +86,26 @@ def extract_zone(q: str, available_zones):
         if normalize_text(zone) in qn:
             return zone
     return None
+
+
+def get_latest_col(df_metrics: pd.DataFrame) -> str:
+    for col in ["L0W_VALUE", "L0W", "L0W_ROLL"]:
+        if col in df_metrics.columns:
+            return col
+    raise ValueError("No se encontró la columna de última semana")
+
+
+def get_order_week_cols(df_orders: pd.DataFrame):
+    week_cols = [c for c in df_orders.columns if re.match(r"^L\d+W$", str(c))]
+    if not week_cols:
+        raise ValueError("No se encontraron columnas semanales en el dataset de órdenes")
+
+    week_cols = sorted(
+        week_cols,
+        key=lambda x: int(re.search(r"L(\d+)W", x).group(1)),
+        reverse=True
+    )
+    return week_cols
 
 
 def top_zones(df_metrics: pd.DataFrame, metric: str, n: int = 5, country: str = None) -> pd.DataFrame:
@@ -229,38 +252,33 @@ def problematic_zones(df_metrics: pd.DataFrame, df_long: pd.DataFrame, n: int = 
     ]].head(n)
 
 
-def order_growth_inference(df_orders: pd.DataFrame, df_metrics: pd.DataFrame, weeks: int = 5, n: int = 5) -> pd.DataFrame:
+def order_growth_inference(df_orders: pd.DataFrame, df_metrics: pd.DataFrame, weeks: int = 5, n: int = 5) -> str:
     if df_orders is None or df_orders.empty:
-        return pd.DataFrame({"message": ["No se encontró dataset de órdenes"]})
+        return "No se encontró dataset de órdenes para analizar crecimiento."
 
-    week_cols = [c for c in df_orders.columns if c.startswith("L") and "W" in c]
+    week_cols = get_order_week_cols(df_orders)
+
     if len(week_cols) < weeks:
         weeks = len(week_cols)
 
-    ordered_weeks = sorted(
-        week_cols,
-        key=lambda x: int(re.search(r"L(\d+)W", x).group(1)),
-        reverse=True
-    )
-    selected = ordered_weeks[-weeks:]  # últimas N hacia presente
+    selected = week_cols[-weeks:]  # de más antiguo a más reciente dentro de la ventana
+    latest_metric_col = get_latest_col(df_metrics)
 
     tmp = df_orders[["COUNTRY", "CITY", "ZONE"] + selected].copy()
     tmp["ORDER_GROWTH"] = tmp[selected[-1]] - tmp[selected[0]]
     tmp = tmp.sort_values("ORDER_GROWTH", ascending=False).head(n)
 
-    latest_col = get_latest_col(df_metrics)
-
-    lp = df_metrics[df_metrics["METRIC"] == "Lead Penetration"][["COUNTRY", "CITY", "ZONE", latest_col]].rename(
-        columns={latest_col: "LEAD_PENETRATION"}
+    lp = df_metrics[df_metrics["METRIC"] == "Lead Penetration"][["COUNTRY", "CITY", "ZONE", latest_metric_col]].rename(
+        columns={latest_metric_col: "LEAD_PENETRATION"}
     )
-    po = df_metrics[df_metrics["METRIC"] == "Perfect Orders"][["COUNTRY", "CITY", "ZONE", latest_col]].rename(
-        columns={latest_col: "PERFECT_ORDERS"}
+    po = df_metrics[df_metrics["METRIC"] == "Perfect Orders"][["COUNTRY", "CITY", "ZONE", latest_metric_col]].rename(
+        columns={latest_metric_col: "PERFECT_ORDERS"}
     )
-    gp = df_metrics[df_metrics["METRIC"] == "Gross Profit UE"][["COUNTRY", "CITY", "ZONE", latest_col]].rename(
-        columns={latest_col: "GROSS_PROFIT_UE"}
+    gp = df_metrics[df_metrics["METRIC"] == "Gross Profit UE"][["COUNTRY", "CITY", "ZONE", latest_metric_col]].rename(
+        columns={latest_metric_col: "GROSS_PROFIT_UE"}
     )
-    pa = df_metrics[df_metrics["METRIC"] == "Pro Adoption"][["COUNTRY", "CITY", "ZONE", latest_col]].rename(
-        columns={latest_col: "PRO_ADOPTION"}
+    pa = df_metrics[df_metrics["METRIC"] == "Pro Adoption"][["COUNTRY", "CITY", "ZONE", latest_metric_col]].rename(
+        columns={latest_metric_col: "PRO_ADOPTION"}
     )
 
     out = tmp.merge(lp, on=["COUNTRY", "CITY", "ZONE"], how="left")
@@ -268,22 +286,80 @@ def order_growth_inference(df_orders: pd.DataFrame, df_metrics: pd.DataFrame, we
     out = out.merge(gp, on=["COUNTRY", "CITY", "ZONE"], how="left")
     out = out.merge(pa, on=["COUNTRY", "CITY", "ZONE"], how="left")
 
-    def build_reason(row):
+    # Resumen interpretativo
+    top_city = out["CITY"].mode().iloc[0] if not out["CITY"].mode().empty else "N/A"
+    avg_lp = out["LEAD_PENETRATION"].mean(skipna=True)
+    avg_po = out["PERFECT_ORDERS"].mean(skipna=True)
+    avg_gp = out["GROSS_PROFIT_UE"].mean(skipna=True)
+
+    lp_text = "medio"
+    if pd.notna(avg_lp):
+        if avg_lp >= 0.60:
+            lp_text = "alto"
+        elif avg_lp <= 0.35:
+            lp_text = "bajo"
+
+    po_text = "estable"
+    if pd.notna(avg_po):
+        if avg_po >= 0.88:
+            po_text = "alto"
+        elif avg_po <= 0.80:
+            po_text = "moderado"
+
+    gp_text = "positivo"
+    if pd.notna(avg_gp):
+        if avg_gp < 1:
+            gp_text = "limitado"
+        elif avg_gp > 2:
+            gp_text = "fuerte"
+
+    summary = (
+        f"Interpretación:\n"
+        f"Las zonas con mayor crecimiento en órdenes se concentran principalmente en {top_city}. "
+        f"En promedio, estas zonas muestran un Lead Penetration {lp_text}, "
+        f"Perfect Orders {po_text} y un Gross Profit UE {gp_text}. "
+        f"Esto sugiere que el crecimiento podría estar explicado más por una buena ejecución operativa "
+        f"y una experiencia de pedido consistente que por una penetración excepcional.\n\n"
+    )
+
+    # Explicación fila a fila
+    explanations = []
+    for _, row in out.iterrows():
         reasons = []
-        if pd.notna(row.get("LEAD_PENETRATION")):
-            reasons.append(f"Lead Penetration={row['LEAD_PENETRATION']:.2f}")
-        if pd.notna(row.get("PERFECT_ORDERS")):
-            reasons.append(f"Perfect Orders={row['PERFECT_ORDERS']:.2f}")
-        if pd.notna(row.get("GROSS_PROFIT_UE")):
-            reasons.append(f"Gross Profit UE={row['GROSS_PROFIT_UE']:.2f}")
-        if pd.notna(row.get("PRO_ADOPTION")):
-            reasons.append(f"Pro Adoption={row['PRO_ADOPTION']:.2f}")
-        return " | ".join(reasons)
 
-    out["POSSIBLE_EXPLANATION"] = out.apply(build_reason, axis=1)
+        lp_val = row.get("LEAD_PENETRATION")
+        po_val = row.get("PERFECT_ORDERS")
+        gp_val = row.get("GROSS_PROFIT_UE")
+        pa_val = row.get("PRO_ADOPTION")
 
-    return out[[
-        "COUNTRY", "CITY", "ZONE", "ORDER_GROWTH",
-        "LEAD_PENETRATION", "PERFECT_ORDERS", "GROSS_PROFIT_UE", "PRO_ADOPTION",
-        "POSSIBLE_EXPLANATION"
-    ]]
+        if pd.notna(po_val) and po_val >= 0.88:
+            reasons.append("alto Perfect Orders")
+        elif pd.notna(po_val):
+            reasons.append("Perfect Orders aceptable")
+
+        if pd.notna(lp_val) and lp_val >= 0.50:
+            reasons.append("Lead Penetration saludable")
+        elif pd.notna(lp_val):
+            reasons.append("Lead Penetration con espacio de mejora")
+
+        if pd.notna(gp_val) and gp_val > 2:
+            reasons.append("Gross Profit UE fuerte")
+        elif pd.notna(gp_val):
+            reasons.append("Gross Profit UE moderado")
+
+        if pd.notna(pa_val) and pa_val >= 0.20:
+            reasons.append("buena adopción Pro")
+
+        explanation_text = ", ".join(reasons)
+        explanations.append(
+            f"- {row['ZONE']} ({row['CITY']}): crecimiento de {row['ORDER_GROWTH']:.0f} órdenes; posible explicación: {explanation_text}."
+        )
+
+    detail_table = out.copy()
+    for col in ["LEAD_PENETRATION", "PERFECT_ORDERS", "GROSS_PROFIT_UE", "PRO_ADOPTION"]:
+        if col in detail_table.columns:
+            detail_table[col] = pd.to_numeric(detail_table[col], errors="coerce").round(3)
+
+    detail_text = "Detalle estructurado:\n" + detail_table.to_string(index=False)
+
+    return summary + "Hallazgos por zona:\n" + "\n".join(explanations) + "\n\n" + detail_text
