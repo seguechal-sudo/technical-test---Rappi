@@ -192,6 +192,35 @@ def multivariable(df_metrics: pd.DataFrame, metric1: str, metric2: str) -> pd.Da
     ]].sort_values(f"{latest_col}_M1", ascending=False)
 
 
+def deterioration_inference(df_long, n=5):
+
+    df = bad_trends(df_long)
+
+    if df.empty:
+        return "No se encontraron zonas con deterioro consistente."
+
+    df = df.head(n).copy()
+
+    top_city = df["CITY"].mode().iloc[0] if not df["CITY"].mode().empty else "N/A"
+    metrics = df["METRIC"].value_counts().head(3).index.tolist()
+
+    summary = (
+        f"Interpretación:\n"
+        f"Se identificaron zonas con deterioro consistente, principalmente en {top_city}. "
+        f"Las métricas más afectadas son: {', '.join(metrics)}. "
+        f"Este patrón sugiere un problema persistente, sin evidencia suficiente para una causa única.\n\n"
+    )
+
+    findings = []
+    for _, row in df.iterrows():
+        findings.append(
+            f"- {row['ZONE']} ({row['CITY']}): deterioro en {row['METRIC']}."
+        )
+
+    detail = "\n\nDetalle:\n" + df.to_string(index=False)
+
+    return summary + "\n".join(findings) + detail
+
 def problematic_zones(df_metrics: pd.DataFrame, df_long: pd.DataFrame, n: int = 5) -> pd.DataFrame:
     latest_col = get_latest_col(df_metrics)
 

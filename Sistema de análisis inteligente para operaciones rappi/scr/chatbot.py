@@ -11,6 +11,7 @@ from scr.logic import (
     multivariable,
     problematic_zones,
     order_growth_inference,
+    deterioration_inference,
 )
 from scr.data import anomalies, bad_trends, correlations
 
@@ -43,8 +44,10 @@ def chatbot(query, df_metrics, df_metrics_long, df_orders=None, df_orders_long=N
         if "tendencia" in q or "evolucion" in q or "trend" in q:
             metric = extract_metric(q, available_metrics)
             zone = extract_zone(q, available_zones)
+
             if zone is None:
-                return "No pude identificar la zona. Escribe el nombre exacto de la zona, por ejemplo: Chapinero."
+                return "No pude identificar la zona. Escribe el nombre exacto (ej: Chapinero)."
+
             return trend(df_metrics_long, metric=metric, zone=zone)
 
         if "promedio" in q or "average" in q:
@@ -63,20 +66,19 @@ def chatbot(query, df_metrics, df_metrics_long, df_orders=None, df_orders_long=N
             return anomalies(df_metrics_long).head(n)
 
         if "deterioro" in q or "tendencia negativa" in q or "caida" in q:
-            n = extract_top_n(q, default=10)
-            return bad_trends(df_metrics_long).head(n)
+            return deterioration_inference(df_metrics_long, n=5)
 
         if "correlacion" in q or "correlation" in q or "relacion entre metricas" in q:
             return correlations(df_metrics_long)
 
         return (
-            "No entendí la pregunta. Prueba con algo como:\n"
-            "- ¿Cuáles son las 5 zonas con mayor Lead Penetration esta semana?\n"
-            "- Compara Perfect Orders entre zonas Wealthy y Non Wealthy en México\n"
-            "- Muestra la evolución de Gross Profit UE en Chapinero\n"
-            "- ¿Cuál es el promedio de Lead Penetration por país?\n"
+            "No entendí la pregunta. Prueba con:\n"
+            "- Top 5 zones with highest Lead Penetration\n"
+            "- Compare Perfect Orders between wealthy and non wealthy zones\n"
+            "- Show trend of Gross Profit UE in Chapinero\n"
             "- ¿Qué zonas tienen alto Lead Penetration pero bajo Perfect Orders?\n"
-            "- ¿Cuáles son las zonas que más crecen en órdenes en las últimas 5 semanas y qué podría explicarlo?"
+            "- ¿Qué zonas presentan deterioro consistente?\n"
+            "- ¿Qué zonas crecen en órdenes y qué lo explica?"
         )
 
     except Exception as e:
